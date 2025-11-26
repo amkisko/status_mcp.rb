@@ -2,10 +2,10 @@ PATH
   remote: .
   specs:
     status_mcp (0.1.0)
-      base64 (~> 0.1)
-      fast-mcp (>= 0.1, < 2.0)
-      nokogiri (~> 1.15)
-      rack (~> 3.0)
+      base64 (~> 0.3)
+      fast-mcp (~> 1.6)
+      nokogiri (~> 1.18)
+      rack (~> 3.2)
 
 GEM
   remote: https://rubygems.org/
@@ -189,7 +189,7 @@ DEPENDENCIES
   simplecov-cobertura (~> 3.1)
   standard (~> 1.52)
   status_mcp!
-  vcr (~> 6.0)
+  vcr (~> 6.3)
   webmock (~> 3.26)
 
 BUNDLED WITH

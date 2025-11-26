@@ -22,14 +22,14 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = ">= 3.1"
 
-  spec.add_runtime_dependency "fast-mcp", ">= 0.1", "< 2.0"
-  spec.add_runtime_dependency "nokogiri", "~> 1.15"
-  spec.add_runtime_dependency "rack", "~> 3.0"
-  spec.add_runtime_dependency "base64", "~> 0.1"
+  spec.add_runtime_dependency "fast-mcp", "~> 1.6"
+  spec.add_runtime_dependency "nokogiri", "~> 1.18"
+  spec.add_runtime_dependency "rack", "~> 3.2"
+  spec.add_runtime_dependency "base64", "~> 0.3"
 
   spec.add_development_dependency "rspec", "~> 3.13"
   spec.add_development_dependency "webmock", "~> 3.26"
-  spec.add_development_dependency "vcr", "~> 6.0"
+  spec.add_development_dependency "vcr", "~> 6.3"
   spec.add_development_dependency "rake", "~> 13.3"
   spec.add_development_dependency "simplecov", "~> 0.22"
   spec.add_development_dependency "rspec_junit_formatter", "~> 0.6"
