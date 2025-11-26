@@ -1,0 +1,14 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Suppress all output to prevent breaking JSON parsing in MCP clients
+unless ENV["DEBUG"]
+  require "stringio"
+  $stderr = StringIO.new
+  $stderr.set_encoding("UTF-8")
+end
+
+require "status_mcp"
+require "status_mcp/server"
+
+StatusMcp::Server.start

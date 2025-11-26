@@ -1,0 +1,25 @@
+# Standard Ruby configuration
+# See https://github.com/standardrb/standard for more options
+
+fix: true
+
+parallel: true
+
+format: progress
+
+plugins:
+  - standard-performance
+
+ignore:
+  - bin/**/*
+  - vendor/**/*
+  - tmp/**/*
+  - coverage/**/*
+
+rubocop:
+  Style/AccessModifierDeclarations:
+    EnforcedStyle: inline
+  Lint/UselessAssignment:
+    Enabled: false
+  Style/FrozenStringLiteralComment:
+    Enabled: false

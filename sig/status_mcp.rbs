@@ -1,0 +1,30 @@
+# TypeProf 0.21.11
+
+module StatusMcp
+  VERSION: String
+  DATA_PATH: String
+
+  class Error < StandardError
+  end
+
+  class Server
+    class BaseTool < FastMcp::Tool
+      def load_data: () -> Array[Hash[String, untyped]]
+    end
+
+    class SearchServicesTool < BaseTool
+      def call: (query: String) -> String
+    end
+
+    class GetServiceDetailsTool < BaseTool
+      def call: (name: String) -> String
+    end
+
+    class ListServicesTool < BaseTool
+      def call: (?limit: Integer) -> String
+    end
+
+    def self.start: () -> void
+    def self.register_tools: (FastMcp::Server) -> void
+  end
+end
