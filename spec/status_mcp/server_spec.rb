@@ -2,6 +2,34 @@
 
 require "status_mcp/server"
 
+RSpec.describe StatusMcp::ResponseSizeExceededError do
+  describe "#initialize" do
+    it "sets size, max_size, and uri attributes" do
+      error = described_class.new(2_000_000, 1_000_000, uri: "https://example.com")
+      expect(error.size).to eq(2_000_000)
+      expect(error.max_size).to eq(1_000_000)
+      expect(error.uri).to eq("https://example.com")
+    end
+
+    it "sets message with size information" do
+      error = described_class.new(2_000_000, 1_000_000, uri: "https://example.com")
+      expect(error.message).to include("2000000")
+      expect(error.message).to include("1000000")
+      expect(error.message).to include("exceeds maximum allowed size")
+    end
+
+    it "handles nil uri" do
+      error = described_class.new(2_000_000, 1_000_000)
+      expect(error.uri).to be_nil
+    end
+
+    it "is a subclass of StatusMcp::Error" do
+      error = described_class.new(1, 1)
+      expect(error).to be_a(StatusMcp::Error)
+    end
+  end
+end
+
 RSpec.describe StatusMcp::Server do
   let(:mock_data) do
     [
@@ -999,6 +1027,21 @@ RSpec.describe StatusMcp::Server do
         result = tool.send(:fetch_and_parse_incident_io_api, "https://status.openai.com/proxy/status.openai.com", 10000)
         expect(result[:error]).to include("Error fetching API")
       end
+
+      it "raises ResponseSizeExceededError when JSON response exceeds limit" do
+        allow(File).to receive(:exist?).and_call_original
+        large_json = "{" + ("x" * (2 * 1024 * 1024)) + "}"
+        stub_request(:get, "https://status.openai.com/proxy/status.openai.com")
+          .to_return(status: 200, body: large_json, headers: {"Content-Type" => "application/json"})
+
+        expect {
+          tool.send(:fetch_and_parse_incident_io_api, "https://status.openai.com/proxy/status.openai.com", 10000)
+        }.to raise_error(StatusMcp::ResponseSizeExceededError) do |error|
+          expect(error.size).to eq(large_json.bytesize)
+          expect(error.max_size).to eq(StatusMcp::Server::FetchStatusTool::MAX_RESPONSE_SIZE)
+          expect(error.uri).to eq("https://status.openai.com/proxy/status.openai.com")
+        end
+      end
     end
 
     describe "#validate_and_parse_html" do
@@ -1137,6 +1180,67 @@ RSpec.describe StatusMcp::Server do
           tool.send(:fetch_with_redirects, "https://example.com")
         }.to raise_error(/Too many redirects/)
       end
+
+      it "raises ResponseSizeExceededError when Content-Length exceeds limit" do
+        allow(File).to receive(:exist?).and_call_original
+        large_size = 2 * 1024 * 1024 # 2MB, exceeds 1MB limit
+        stub_request(:get, "https://example.com")
+          .to_return(status: 200, body: "x" * 100, headers: {"Content-Length" => large_size.to_s})
+
+        expect {
+          tool.send(:fetch_with_redirects, "https://example.com")
+        }.to raise_error(StatusMcp::ResponseSizeExceededError) do |error|
+          expect(error.size).to eq(large_size)
+          expect(error.max_size).to eq(StatusMcp::Server::FetchStatusTool::MAX_RESPONSE_SIZE)
+          expect(error.uri).to eq("https://example.com")
+        end
+      end
+
+      it "raises ResponseSizeExceededError when response body exceeds limit" do
+        allow(File).to receive(:exist?).and_call_original
+        large_body = "x" * (2 * 1024 * 1024) # 2MB, exceeds 1MB limit
+        stub_request(:get, "https://example.com")
+          .to_return(status: 200, body: large_body, headers: {"Content-Type" => "text/html"})
+
+        expect {
+          tool.send(:fetch_with_redirects, "https://example.com")
+        }.to raise_error(StatusMcp::ResponseSizeExceededError) do |error|
+          expect(error.size).to eq(large_body.bytesize)
+          expect(error.max_size).to eq(StatusMcp::Server::FetchStatusTool::MAX_RESPONSE_SIZE)
+          expect(error.uri).to eq("https://example.com")
+        end
+      end
+
+      it "allows responses under the size limit" do
+        allow(File).to receive(:exist?).and_call_original
+        small_body = "x" * (500 * 1024) # 500KB, under 1MB limit
+        stub_request(:get, "https://example.com")
+          .to_return(status: 200, body: small_body, headers: {"Content-Type" => "text/html"})
+
+        response = tool.send(:fetch_with_redirects, "https://example.com")
+        expect(response.code).to eq("200")
+        expect(response.body.bytesize).to eq(small_body.bytesize)
+      end
+
+      it "handles missing Content-Length header and checks body size" do
+        allow(File).to receive(:exist?).and_call_original
+        large_body = "x" * (2 * 1024 * 1024) # 2MB, exceeds 1MB limit
+        stub_request(:get, "https://example.com")
+          .to_return(status: 200, body: large_body, headers: {"Content-Type" => "text/html"})
+
+        expect {
+          tool.send(:fetch_with_redirects, "https://example.com")
+        }.to raise_error(StatusMcp::ResponseSizeExceededError)
+      end
+
+      it "handles nil response body" do
+        allow(File).to receive(:exist?).and_call_original
+        stub_request(:get, "https://example.com")
+          .to_return(status: 200, body: nil, headers: {"Content-Type" => "text/html"})
+
+        response = tool.send(:fetch_with_redirects, "https://example.com")
+        expect(response.code).to eq("200")
+      end
     end
 
     describe "#fetch_and_extract" do
@@ -1159,6 +1263,21 @@ RSpec.describe StatusMcp::Server do
 
         result = tool.send(:fetch_and_extract, "https://status.example.com", 10000)
         expect(result[:http_status_code]).to eq(200)
+      end
+
+      it "raises ResponseSizeExceededError when HTML body exceeds limit" do
+        allow(File).to receive(:exist?).and_call_original
+        large_html = "<html><body>" + ("x" * (2 * 1024 * 1024)) + "</body></html>"
+        stub_request(:get, "https://status.example.com")
+          .to_return(status: 200, body: large_html, headers: {"Content-Type" => "text/html"})
+
+        expect {
+          tool.send(:fetch_and_extract, "https://status.example.com", 10000)
+        }.to raise_error(StatusMcp::ResponseSizeExceededError) do |error|
+          expect(error.size).to eq(large_html.bytesize)
+          expect(error.max_size).to eq(StatusMcp::Server::FetchStatusTool::MAX_RESPONSE_SIZE)
+          expect(error.uri).to eq("https://status.example.com")
+        end
       end
     end
 
@@ -1219,6 +1338,23 @@ RSpec.describe StatusMcp::Server do
         result = tool.call(status_url: "https://status.openai.com")
         # Should continue with other methods
         expect(result[:latest_status]).to include("Operational")
+      end
+    end
+
+    describe "#fetch_and_parse_feed" do
+      it "raises ResponseSizeExceededError when feed response exceeds limit" do
+        allow(File).to receive(:exist?).and_call_original
+        large_feed = "<?xml version='1.0'?><rss version='2.0'><channel><title>Feed</title></channel></rss>" + ("x" * (2 * 1024 * 1024))
+        stub_request(:get, "https://status.example.com/feed.rss")
+          .to_return(status: 200, body: large_feed, headers: {"Content-Type" => "application/rss+xml"})
+
+        expect {
+          tool.send(:fetch_and_parse_feed, "https://status.example.com/feed.rss", 10000)
+        }.to raise_error(StatusMcp::ResponseSizeExceededError) do |error|
+          expect(error.size).to eq(large_feed.bytesize)
+          expect(error.max_size).to eq(StatusMcp::Server::FetchStatusTool::MAX_RESPONSE_SIZE)
+          expect(error.uri).to eq("https://status.example.com/feed.rss")
+        end
       end
     end
 

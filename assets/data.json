@@ -41,6 +41,14 @@
     ]
   },
   {
+    "name": "AWS",
+    "status_url": "https://status.aws.amazon.com",
+    "website_url": "https://aws.amazon.com/",
+    "security_url": null,
+    "support_url": "https://aws.amazon.com/support/",
+    "aux_urls": []
+  },
+  {
     "name": "Pinterest",
     "status_url": "https://www.pintereststatus.com",
     "website_url": "http://pinterest.com/",
@@ -17508,5 +17516,21 @@
     "aux_urls": [
       "https://statussight.com/status/zyte"
     ]
+  },
+  {
+    "name": "Google Cloud Platform",
+    "status_url": "https://status.cloud.google.com",
+    "website_url": "https://cloud.google.com/",
+    "security_url": "https://status.cloud.google.com/security",
+    "support_url": null,
+    "aux_urls": []
+  },
+  {
+    "name": "Timely",
+    "status_url": "https://status.timelyapp.com",
+    "website_url": "https://timelyapp.com/",
+    "security_url": null,
+    "support_url": null,
+    "aux_urls": []
   }
 ]

@@ -216,6 +216,9 @@ module StatusMcp
     end
 
     class FetchStatusTool < BaseTool
+      # Maximum response size (1MB) to protect against zip bombs and crawler protection pages
+      MAX_RESPONSE_SIZE = 1 * 1024 * 1024 # 1MB
+
       tool_name "fetch_status"
       description "Fetch status from a status_url with HTML purification. Extracts latest status, history, and messages from status pages."
 
@@ -343,9 +346,15 @@ module StatusMcp
           http_status_code: http_status_code
         }
       rescue => e
+        error_message = if e.is_a?(StatusMcp::ResponseSizeExceededError)
+          "Response size limit exceeded: #{e.message}"
+        else
+          "Error fetching status: #{e.message}"
+        end
+
         {
           status_url: status_url,
-          error: "Error fetching status: #{e.message}",
+          error: error_message,
           latest_status: nil,
           history: [],
           messages: []
@@ -382,6 +391,25 @@ module StatusMcp
             next
           end
 
+          # Check response size before returning (protect against zip bombs and crawler protection)
+          if response.is_a?(Net::HTTPSuccess)
+            # Check Content-Length header first if available (optimization to avoid reading large bodies)
+            content_length = response["Content-Length"]
+            if content_length
+              content_length_int = content_length.to_i
+              if content_length_int > MAX_RESPONSE_SIZE
+                raise StatusMcp::ResponseSizeExceededError.new(content_length_int, MAX_RESPONSE_SIZE, uri: uri.to_s)
+              end
+            end
+
+            # Read body and check actual size (Content-Length might be missing or incorrect)
+            response_body = response.body || ""
+            response_size = response_body.bytesize
+            if response_size > MAX_RESPONSE_SIZE
+              raise StatusMcp::ResponseSizeExceededError.new(response_size, MAX_RESPONSE_SIZE, uri: uri.to_s)
+            end
+          end
+
           return response
         end
 
@@ -403,7 +431,12 @@ module StatusMcp
           }
         end
 
-        html_body = response.body
+        html_body = response.body || ""
+        # Additional size check (already checked in fetch_with_redirects, but double-check for safety)
+        if html_body.bytesize > MAX_RESPONSE_SIZE
+          raise StatusMcp::ResponseSizeExceededError.new(html_body.bytesize, MAX_RESPONSE_SIZE, uri: url)
+        end
+
         uri = URI(url)
 
         # Validate and parse HTML
@@ -482,8 +515,17 @@ module StatusMcp
           }
         end
 
+        json_body = response.body || ""
+        # Additional size check (already checked in fetch_with_redirects, but double-check for safety)
+        if json_body.bytesize > MAX_RESPONSE_SIZE
+          raise StatusMcp::ResponseSizeExceededError.new(json_body.bytesize, MAX_RESPONSE_SIZE, uri: api_url)
+        end
+
         # Parse JSON response
-        parse_incident_io_api(response.body, max_length)
+        parse_incident_io_api(json_body, max_length)
+      rescue StatusMcp::ResponseSizeExceededError
+        # Re-raise response size errors
+        raise
       rescue JSON::ParserError => e
         {
           error: "Error parsing API JSON: #{e.message}",
@@ -636,8 +678,17 @@ module StatusMcp
           }
         end
 
+        feed_body = response.body || ""
+        # Additional size check (already checked in fetch_with_redirects, but double-check for safety)
+        if feed_body.bytesize > MAX_RESPONSE_SIZE
+          raise StatusMcp::ResponseSizeExceededError.new(feed_body.bytesize, MAX_RESPONSE_SIZE, uri: feed_url)
+        end
+
         # Parse RSS/Atom feed
-        parse_feed(response.body, max_length)
+        parse_feed(feed_body, max_length)
+      rescue StatusMcp::ResponseSizeExceededError
+        # Re-raise response size errors
+        raise
       rescue => e
         {
           error: "Error parsing feed: #{e.message}",
