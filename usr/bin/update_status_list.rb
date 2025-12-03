@@ -5,6 +5,7 @@ require "net/http"
 require "json"
 require "fileutils"
 require "nokogiri"
+require "openssl"
 
 # URL of the awesome-status README
 README_URL = "https://raw.githubusercontent.com/amkisko/awesome-status/refs/heads/main/README.md"
@@ -15,7 +16,17 @@ def fetch_readme
   uri = URI(README_URL)
   http = Net::HTTP.new(uri.host, uri.port)
   http.use_ssl = true
-  http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+  http.verify_mode = OpenSSL::SSL::VERIFY_PEER
+
+  # Set ca_file directly - this is the simplest and most reliable approach
+  # Try SSL_CERT_FILE first, then default cert file
+  ca_file = if ENV["SSL_CERT_FILE"] && File.file?(ENV["SSL_CERT_FILE"])
+    ENV["SSL_CERT_FILE"]
+  elsif File.exist?(OpenSSL::X509::DEFAULT_CERT_FILE)
+    OpenSSL::X509::DEFAULT_CERT_FILE
+  end
+
+  http.ca_file = ca_file if ca_file
 
   request = Net::HTTP::Get.new(uri)
   response = http.request(request)
