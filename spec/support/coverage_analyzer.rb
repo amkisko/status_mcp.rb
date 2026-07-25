@@ -35,7 +35,7 @@ module CoverageAnalyzer
 
     # Sort by file, then by line number
     uncovered.sort_by { |e| [e[:file], e[:line]] }.each do |line_info|
-      puts "#{line_info[:file]}:#{line_info[:line]}"
+      warn "#{line_info[:file]}:#{line_info[:line]}"
     end
   end
 
