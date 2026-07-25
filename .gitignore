@@ -31,7 +31,6 @@
 *.gem
 
 # Appraisal lock files
-/gemfiles/*.lock
 
 # Cursor IDE config (may contain secrets)
 .cursor/mcp.json

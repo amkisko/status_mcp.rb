@@ -38,7 +38,7 @@ jobs:
       run: bundle exec polyrun parallel-rspec --workers 5 --merge-failures
     
     - name: Run linting
-      run: bundle exec standardrb
+      run: make lint
 
   coverage:
     runs-on: ubuntu-latest
