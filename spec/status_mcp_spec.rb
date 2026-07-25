@@ -2,7 +2,7 @@
 
 RSpec.describe StatusMcp do
   it "has a version number" do
-    expect(StatusMcp::VERSION).not_to be nil
+    expect(StatusMcp::VERSION).not_to be_nil
   end
 
   it "defines DATA_PATH" do
