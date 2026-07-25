@@ -1,6 +1,6 @@
 # status_mcp
 
-[![Gem Version](https://badge.fury.io/rb/status_mcp.svg)](https://badge.fury.io/rb/status_mcp) [![Test Status](https://github.com/amkisko/status_mcp.rb/actions/workflows/test.yml/badge.svg)](https://github.com/amkisko/status_mcp.rb/actions/workflows/test.yml) [![codecov](https://codecov.io/gh/amkisko/status_mcp.rb/graph/badge.svg)](https://codecov.io/gh/amkisko/status_mcp.rb)
+[![Gem Version](https://badge.fury.io/rb/status_mcp.svg)](https://badge.fury.io/rb/status_mcp) [![Test Status](https://github.com/amkisko/status_mcp.rb/actions/workflows/test.yml/badge.svg)](https://github.com/amkisko/status_mcp.rb/actions/workflows/test.yml) [![codecov](https://codecov.io/gh/amkisko/status_mcp.rb/graph/badge.svg)](https://app.codecov.io/github/amkisko/status_mcp.rb)
 
 Ruby gem providing status page information from [awesome-status](https://github.com/amkisko/awesome-status) via MCP (Model Context Protocol) server tools. Integrates with MCP-compatible clients like Cursor IDE, Claude Desktop, and other MCP-enabled tools.
 
@@ -123,6 +123,19 @@ For more information, see [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Security
 
 If you discover a security vulnerability, please report it responsibly. See [SECURITY.md](SECURITY.md) for details.
+
+## Links
+
+- [GitHub](https://github.com/amkisko/status_mcp.rb)
+- [GitLab](https://gitlab.com/amkisko/status_mcp.rb)
+- [RubyGems](https://rubygems.org/gems/status_mcp)
+- [Versions Atom](https://rubygems.org/gems/status_mcp/versions.atom) (feed id `10002864981316`)
+- [libraries.io](https://libraries.io/rubygems/status_mcp)
+- [Deps.dev](https://deps.dev/rubygems/status_mcp)
+- [SonarCloud](https://sonarcloud.io/project/overview?id=amkisko_status_mcp.rb)
+- [Snyk](https://snyk.io/test/github/amkisko/status_mcp.rb)
+- [Codecov](https://app.codecov.io/github/amkisko/status_mcp.rb)
+- [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/amkisko/status_mcp.rb)
 
 ## License
 

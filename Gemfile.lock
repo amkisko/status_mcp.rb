@@ -71,6 +71,10 @@ GEM
       logger
       mime-types-data (~> 3.2025, >= 3.2025.0507)
     mime-types-data (3.2025.0924)
+    mini_portile2 (2.8.9)
+    nokogiri (1.18.10)
+      mini_portile2 (~> 2.8.2)
+      racc (~> 1.4)
     nokogiri (1.18.10-aarch64-linux-gnu)
       racc (~> 1.4)
     nokogiri (1.18.10-aarch64-linux-musl)
@@ -91,6 +95,7 @@ GEM
     parser (3.3.10.0)
       ast (~> 2.4.1)
       racc
+    polyrun (2.2.0)
     prism (1.6.0)
     public_suffix (7.0.0)
     racc (1.8.1)
@@ -182,7 +187,7 @@ GEM
     thor (1.4.0)
     unicode-display_width (3.2.0)
       unicode-emoji (~> 4.1)
-    unicode-emoji (4.1.0)
+    unicode-emoji (4.2.0)
     vcr (6.3.1)
       base64
     webmock (3.26.1)
@@ -204,6 +209,7 @@ PLATFORMS
 DEPENDENCIES
   appraisal (~> 2.5)
   memory_profiler (~> 1.1)
+  polyrun (>= 2.2.0)
   rake (~> 13.3)
   rbs (~> 3.9)
   rspec (~> 3.13)
@@ -221,4 +227,4 @@ DEPENDENCIES
   webmock (~> 3.26)
 
 BUNDLED WITH
-   2.7.2
+  4.0.16
