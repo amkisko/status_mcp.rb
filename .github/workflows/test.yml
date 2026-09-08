@@ -49,11 +49,11 @@ jobs:
           ruby-version: "3.4"
           bundler-cache: true
       - run: POLYRUN_COVERAGE=1 bundle exec polyrun parallel-rspec --workers 5 --merge-failures
-      - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         continue-on-error: true
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      - uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         if: ${{ !cancelled() }}
         continue-on-error: true
         with:
