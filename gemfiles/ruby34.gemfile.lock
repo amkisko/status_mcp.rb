@@ -1,11 +1,12 @@
 PATH
   remote: ..
   specs:
-    status_mcp (0.1.0)
+    status_mcp (0.1.1)
       base64 (~> 0.3)
       fast-mcp (~> 1.6)
-      nokogiri (~> 1.18)
-      rack (~> 3.2)
+      json (>= 2.21.2)
+      nokogiri (~> 1.18, >= 1.19.4)
+      rack (~> 3.2, >= 3.2.6)
 
 GEM
   remote: https://rubygems.org/
@@ -62,7 +63,7 @@ GEM
       mime-types (~> 3.4)
       rack (>= 2.0, < 4.0)
     hashdiff (1.2.1)
-    json (2.21.1)
+    json (2.21.2)
     language_server-protocol (3.17.0.6)
     lint_roller (1.1.0)
     logger (1.7.0)
@@ -221,7 +222,7 @@ DEPENDENCIES
   standard-performance (~> 1.8)
   standard-rspec (~> 0.3)
   status_mcp!
-  vcr (~> 6.3)
+  vcr (~> 6.3, >= 6.4.0)
   webmock (~> 3.26)
 
 RUBY VERSION

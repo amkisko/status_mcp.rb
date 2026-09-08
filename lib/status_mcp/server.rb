@@ -7,6 +7,8 @@ require "uri"
 require "openssl"
 require "nokogiri"
 require_relative "../status_mcp"
+require_relative "network_policy"
+require_relative "fetch_budget"
 
 module StatusMcp
   class Server
@@ -191,16 +193,18 @@ module StatusMcp
     end
 
     class ListServicesTool < BaseTool
+      MAX_LIST_LIMIT = 200
+
       tool_name "list_services"
-      description "List all available services (limited to first 50 if too many)"
+      description "List available services. Default 50. Maximum 200."
 
       arguments do
-        optional(:limit).filled(:integer).description("Limit number of results (default 50)")
+        optional(:limit).filled(:integer).description("Limit number of results (default 50, maximum 200)")
       end
 
       def call(limit: 50)
         services = load_data
-        limit ||= 50
+        limit = (limit || 50).clamp(1, MAX_LIST_LIMIT)
 
         list = services.take(limit).map { |s| s["name"] }
 
@@ -218,16 +222,27 @@ module StatusMcp
     class FetchStatusTool < BaseTool
       # Maximum response size (1MB) to protect against zip bombs and crawler protection pages
       MAX_RESPONSE_SIZE = 1 * 1024 * 1024 # 1MB
+      MAX_EXTRACT_LENGTH = 10_000
+      # Two common feed paths plus main, history, and a few redirects. Raise MAX_FETCH_REQUESTS if a vendor needs a longer hop chain.
+      MAX_FEED_PROBES = 2
+      MAX_FETCH_REQUESTS = 6
+      FETCH_DEADLINE_SECONDS = 20
 
       tool_name "fetch_status"
       description "Fetch status from a status_url with HTML purification. Extracts latest status, history, and messages from status pages."
 
       arguments do
         required(:status_url).filled(:string).description("Status page URL to fetch")
-        optional(:max_length).filled(:integer).description("Maximum length of extracted text in characters (default: 10000)")
+        optional(:max_length).filled(:integer).description("Maximum length of extracted text in characters (default: 10000, maximum: 10000)")
       end
 
       def call(status_url:, max_length: 10000)
+        max_length = (max_length || MAX_EXTRACT_LENGTH).clamp(1, MAX_EXTRACT_LENGTH)
+        @fetch_budget = StatusMcp::FetchBudget.new(
+          max_requests: MAX_FETCH_REQUESTS,
+          deadline_seconds: FETCH_DEADLINE_SECONDS
+        )
+
         # Try incident.io API first (only if we detect it's an incident.io page)
         api_info = nil
         api_url = nil
@@ -242,7 +257,11 @@ module StatusMcp
                 api_info = nil
               end
             end
-          rescue => e
+          rescue StatusMcp::UnsafeUrlError, StatusMcp::ResponseSizeExceededError
+            raise
+          rescue StatusMcp::FetchBudget::ExhaustedError
+            api_info = nil
+          rescue
             # Not an incident.io page or API failed, continue with other methods
           end
         end
@@ -259,8 +278,11 @@ module StatusMcp
               successful_feed_url = feed_url
               break
             end
-          rescue => e
-            # Try next feed URL
+          rescue StatusMcp::UnsafeUrlError, StatusMcp::ResponseSizeExceededError
+            raise
+          rescue StatusMcp::FetchBudget::ExhaustedError
+            break
+          rescue
             next
           end
         end
@@ -269,8 +291,11 @@ module StatusMcp
         main_info = nil
         begin
           main_info = fetch_and_extract(status_url, max_length)
-        rescue => e
-          # If we have feed info, that's okay
+        rescue StatusMcp::UnsafeUrlError, StatusMcp::ResponseSizeExceededError
+          raise
+        rescue StatusMcp::FetchBudget::ExhaustedError
+          main_info = {latest_status: nil, history: [], messages: [], error: nil} unless feed_info || api_info
+        rescue
           main_info = {latest_status: nil, history: [], messages: [], error: nil} unless feed_info
         end
 
@@ -281,9 +306,12 @@ module StatusMcp
         if history_url && history_url != status_url
           begin
             history_info = fetch_and_extract(history_url, max_length, history_only: true)
-          rescue => e
-            # Silently fail if history page doesn't exist or has errors
-            # This is expected for many status pages
+          rescue StatusMcp::UnsafeUrlError, StatusMcp::ResponseSizeExceededError
+            raise
+          rescue StatusMcp::FetchBudget::ExhaustedError
+            history_info = nil
+          rescue
+            # History page missing is common
           end
         end
 
@@ -348,6 +376,8 @@ module StatusMcp
       rescue => e
         error_message = if e.is_a?(StatusMcp::ResponseSizeExceededError)
           "Response size limit exceeded: #{e.message}"
+        elsif e.is_a?(StatusMcp::UnsafeUrlError)
+          e.message
         else
           "Error fetching status: #{e.message}"
         end
@@ -366,8 +396,11 @@ module StatusMcp
         redirect_count = 0
 
         while redirect_count < max_redirects
-          uri = URI(current_url)
+          @fetch_budget&.consume!
+
+          uri, ip_address = NetworkPolicy.validate!(current_url)
           http = Net::HTTP.new(uri.host, uri.port)
+          http.ipaddr = ip_address
           http.use_ssl = (uri.scheme == "https")
           if http.use_ssl?
             http.verify_mode = OpenSSL::SSL::VERIFY_PEER
@@ -380,41 +413,50 @@ module StatusMcp
           request["User-Agent"] = "Mozilla/5.0 (compatible; StatusMcp/1.0)"
           request["Accept"] = accept
 
-          response = http.request(request)
-
-          # Handle redirects (301, 302, 307, 308)
-          if response.is_a?(Net::HTTPRedirection) && response["location"]
-            redirect_count += 1
-            location = response["location"]
-            # Handle relative redirects
-            current_url = URI.join(current_url, location).to_s
-            next
-          end
-
-          # Check response size before returning (protect against zip bombs and crawler protection)
-          if response.is_a?(Net::HTTPSuccess)
-            # Check Content-Length header first if available (optimization to avoid reading large bodies)
-            content_length = response["Content-Length"]
-            if content_length
-              content_length_int = content_length.to_i
-              if content_length_int > MAX_RESPONSE_SIZE
-                raise StatusMcp::ResponseSizeExceededError.new(content_length_int, MAX_RESPONSE_SIZE, uri: uri.to_s)
-              end
-            end
-
-            # Read body and check actual size (Content-Length might be missing or incorrect)
-            response_body = response.body || ""
-            response_size = response_body.bytesize
-            if response_size > MAX_RESPONSE_SIZE
-              raise StatusMcp::ResponseSizeExceededError.new(response_size, MAX_RESPONSE_SIZE, uri: uri.to_s)
+          redirected = false
+          captured = nil
+          http.request(request) do |response|
+            if response.is_a?(Net::HTTPRedirection) && response["location"]
+              drain_body(response)
+              redirect_count += 1
+              current_url = URI.join(current_url, response["location"]).to_s
+              redirected = true
+            else
+              attach_capped_body!(response, uri)
+              captured = response
             end
           end
 
-          return response
+          next if redirected
+          return captured
         end
 
-        # Too many redirects
         raise "Too many redirects (max: #{max_redirects})"
+      end
+
+      def drain_body(response)
+        response.read_body { |_| }
+      end
+
+      def attach_capped_body!(response, uri)
+        content_length = response["Content-Length"]
+        if content_length
+          content_length_int = content_length.to_i
+          if content_length_int > MAX_RESPONSE_SIZE
+            drain_body(response)
+            raise StatusMcp::ResponseSizeExceededError.new(content_length_int, MAX_RESPONSE_SIZE, uri: uri.to_s)
+          end
+        end
+
+        buffer = +""
+        response.read_body do |chunk|
+          next_size = buffer.bytesize + chunk.bytesize
+          if next_size > MAX_RESPONSE_SIZE
+            raise StatusMcp::ResponseSizeExceededError.new(next_size, MAX_RESPONSE_SIZE, uri: uri.to_s)
+          end
+          buffer << chunk
+        end
+        response.define_singleton_method(:body) { buffer }
       end
 
       def fetch_and_extract(url, max_length, history_only: false)
@@ -523,8 +565,7 @@ module StatusMcp
 
         # Parse JSON response
         parse_incident_io_api(json_body, max_length)
-      rescue StatusMcp::ResponseSizeExceededError
-        # Re-raise response size errors
+      rescue StatusMcp::ResponseSizeExceededError, StatusMcp::UnsafeUrlError, StatusMcp::FetchBudget::ExhaustedError
         raise
       rescue JSON::ParserError => e
         {
@@ -644,7 +685,7 @@ module StatusMcp
         uri = URI(status_url)
         base_path = uri.path.chomp("/")
 
-        # Common RSS/Atom feed patterns
+        # Common RSS/Atom feed patterns. MAX_FEED_PROBES is the known ceiling.
         feed_patterns = [
           "/feed.rss",
           "/feed.atom",
@@ -653,7 +694,7 @@ module StatusMcp
           "/feed",
           "/status.rss",
           "/status.atom"
-        ]
+        ].first(MAX_FEED_PROBES)
 
         feed_urls = []
         feed_patterns.each do |pattern|
@@ -686,8 +727,7 @@ module StatusMcp
 
         # Parse RSS/Atom feed
         parse_feed(feed_body, max_length)
-      rescue StatusMcp::ResponseSizeExceededError
-        # Re-raise response size errors
+      rescue StatusMcp::ResponseSizeExceededError, StatusMcp::UnsafeUrlError, StatusMcp::FetchBudget::ExhaustedError
         raise
       rescue => e
         {

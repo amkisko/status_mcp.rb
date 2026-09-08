@@ -47,6 +47,16 @@ RSpec.describe StatusMcp::Server do
   before do
     allow(File).to receive(:exist?).with(StatusMcp::DATA_PATH).and_return(true)
     allow(File).to receive(:read).with(StatusMcp::DATA_PATH).and_return(JSON.generate(mock_data))
+    allow(Addrinfo).to receive(:getaddrinfo).and_call_original
+    allow(Addrinfo).to receive(:getaddrinfo)
+      .with("example.com", anything, nil, :STREAM)
+      .and_return([Addrinfo.ip("93.184.216.34")])
+    allow(Addrinfo).to receive(:getaddrinfo)
+      .with("status.example.com", anything, nil, :STREAM)
+      .and_return([Addrinfo.ip("93.184.216.34")])
+    allow(Addrinfo).to receive(:getaddrinfo)
+      .with("status.openai.com", anything, nil, :STREAM)
+      .and_return([Addrinfo.ip("104.18.33.45")])
   end
 
   describe ".start" do
@@ -62,6 +72,7 @@ RSpec.describe StatusMcp::Server do
       expect(server_double).to have_received(:register_tool).with(StatusMcp::Server::SearchServicesTool)
       expect(server_double).to have_received(:register_tool).with(StatusMcp::Server::GetServiceDetailsTool)
       expect(server_double).to have_received(:register_tool).with(StatusMcp::Server::ListServicesTool)
+      expect(server_double).to have_received(:register_tool).with(StatusMcp::Server::FetchStatusTool)
       expect(server_double).to have_received(:start)
     end
   end
@@ -413,6 +424,25 @@ RSpec.describe StatusMcp::Server do
       expect(result).to include("Available services (2/3)")
       expect(result).to include("and 1 more")
     end
+
+    it "clamps limit to the maximum" do
+      many_services = Array.new(250) do |index|
+        {
+          "name" => "Service #{index}",
+          "status_url" => "https://status#{index}.example",
+          "website_url" => nil,
+          "security_url" => nil,
+          "support_url" => nil,
+          "aux_urls" => []
+        }
+      end
+      allow(File).to receive(:read).with(StatusMcp::DATA_PATH).and_return(JSON.generate(many_services))
+
+      result = tool.call(limit: 10_000)
+
+      expect(result).to include("Available services (200/250)")
+      expect(result).to include("and 50 more")
+    end
   end
 
   describe StatusMcp::Server::FetchStatusTool do
@@ -738,7 +768,7 @@ RSpec.describe StatusMcp::Server do
         urls = tool.send(:build_feed_urls, "https://status.example.com")
         expect(urls).to include("https://status.example.com/feed.rss")
         expect(urls).to include("https://status.example.com/feed.atom")
-        expect(urls).to include("https://status.example.com/rss")
+        expect(urls).not_to include("https://status.example.com/rss")
       end
 
       it "handles status URL with path" do
@@ -1996,7 +2026,7 @@ RSpec.describe StatusMcp::Server do
 
         result = tool.call(status_url: "https://status.openai.com")
         # Should not have JS-rendered error since we got API data
-        expect(result[:error]).to be_nil.or(!include("JavaScript-rendered"))
+        expect(result[:error].to_s).not_to include("JavaScript-rendered")
       end
 
       it "shows API error when no other data available" do

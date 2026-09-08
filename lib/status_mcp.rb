@@ -6,6 +6,7 @@ require_relative "status_mcp/version"
 
 module StatusMcp
   class Error < StandardError; end
+  class UnsafeUrlError < Error; end
 
   class ResponseSizeExceededError < Error
     attr_reader :size, :max_size, :uri

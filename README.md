@@ -10,9 +10,13 @@ Sponsored by [Kisko Labs](https://www.kiskolabs.com).
   <img src="kisko.svg" width="200" alt="Sponsored by Kisko Labs" />
 </a>
 
+## Status
+
+This project is in low-priority support / maintenance mode. Prefer [status-cli](https://github.com/amkisko/status-cli.rs) for new status-page CLI and automation work. Existing installs keep working; expect security and critical fixes only, not new features.
+
 ## Requirements
 
-- **Ruby 3.1 or higher** (Ruby 3.0 and earlier are not supported)
+- **Ruby 3.4 or higher**
 
 ## Quick Start
 
@@ -81,8 +85,8 @@ The server will start and communicate via STDIN/STDOUT using the MCP protocol.
 
 - **Status Page Information**: Access to over 1700 status page links from `awesome-status`
 - **MCP Server Integration**: Ready-to-use MCP server with tools for searching and retrieving status page details
-- **No Authentication Required**: All data is bundled with the gem
-- **Offline Capable**: Once installed, the data is available locally
+- **Bundled catalog**: Search, details, and list tools read local data from the gem
+- **Live fetch**: `fetch_status` requests the public status URL over HTTP
 
 ## MCP Tools
 
@@ -94,8 +98,11 @@ The MCP server provides the following tools:
 2. **get_service_details** - Get detailed status links for a specific service
    - Parameters: `name` (string)
 
-3. **list_services** - List all available services (limited to first 50 if too many)
-   - Parameters: `limit` (optional integer, default: 50)
+3. **list_services** - List available services
+   - Parameters: `limit` (optional integer, default: 50, maximum: 200)
+
+4. **fetch_status** - Fetch a public status page over HTTP and extract latest status, history, and messages
+   - Parameters: `status_url` (string), `max_length` (optional integer, default: 10000, maximum: 10000)
 
 ## Development
 
