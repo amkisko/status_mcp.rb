@@ -33,9 +33,9 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "webmock", "~> 3.26"
   spec.add_development_dependency "vcr", "~> 6.3", ">= 6.4.0"
   spec.add_development_dependency "rake", "~> 13.3"
-  spec.add_development_dependency "simplecov", "~> 0.22"
+  spec.add_development_dependency "simplecov", "~> 1.2"
   spec.add_development_dependency "rspec_junit_formatter", "~> 0.6"
-  spec.add_development_dependency "simplecov-cobertura", "~> 3.1"
+  spec.add_development_dependency "simplecov-cobertura", "~> 4.0"
   spec.add_development_dependency "standard", "~> 1.52"
   spec.add_development_dependency "standard-custom", "~> 1.0"
   spec.add_development_dependency "standard-performance", "~> 1.8"
@@ -44,5 +44,5 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency "rubocop-thread_safety", "~> 0.7"
   spec.add_development_dependency "appraisal", "~> 2.5"
   spec.add_development_dependency "memory_profiler", "~> 1.1"
-  spec.add_development_dependency "rbs", "~> 3.9"
+  spec.add_development_dependency "rbs", "~> 4.2"
 end
